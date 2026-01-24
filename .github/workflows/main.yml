@@ -44,38 +44,45 @@ jobs:
         chmod +x compile.sh
         ./compile.sh -P5 -j$(nproc)
 
-    # 🔧 FIX REAL DEL ERROR libyaml-0.so.2
+    # 🔧 FIX REAL DEL ERROR libyaml-0.so.2 (archivo truncado)
     - name: Fix libyaml broken binary
       run: |
         set -e
         cd php-build-scripts
 
-        echo "🔍 Checking libyaml on system"
-        ls -lh /usr/lib/x86_64-linux-gnu/libyaml-0.so.2
+        echo "🔍 Checking system libyaml"
         file /usr/lib/x86_64-linux-gnu/libyaml-0.so.2
 
-        echo "📦 Copying libyaml to PHP binary"
-        cp -f /usr/lib/x86_64-linux-gnu/libyaml-0.so.2 bin/php7/lib/
+        echo "📦 Replacing broken libyaml"
+        rm -f bin/php7/lib/libyaml*
+        cp /usr/lib/x86_64-linux-gnu/libyaml-0.so.2 bin/php7/lib/
 
-        echo "🔗 Fixing symlinks"
+        echo "🔗 Creating symlink"
         cd bin/php7/lib
         ln -sf libyaml-0.so.2 libyaml.so.2
 
-        echo "✅ Verifying library"
+        echo "✅ libyaml fixed"
         file libyaml-0.so.2
-        ls -lh libyaml-0.so.2
+
+    # 🔐 FIX PERMISSION DENIED (clave)
+    - name: Ensure PHP binary is executable
+      run: |
+        cd php-build-scripts
+        chmod 755 bin/php7/bin/php
+        chmod 755 bin/php7/bin/*
+        ls -l bin/php7/bin/php
 
     - name: Verify PHP binary
       run: |
         cd php-build-scripts
         bin/php7/bin/php -m | grep yaml
 
-    - name: Package PHP binary only
+    - name: Package PHP binary only (preserve permissions)
       run: |
         cd php-build-scripts
         tar -czf php-8.2-pocketmine-linux-x86_64.tar.gz bin/
 
-    # 📦 SUBIR A ARTEFACTOS (lo que pediste)
+    # 📦 SUBIR A ARTEFACTOS
     - name: Upload PHP binary artifact
       uses: actions/upload-artifact@v4
       with:
