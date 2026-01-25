@@ -1,0 +1,71 @@
+name: Run PocketMine Test Server & Backup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-server:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Install unzip
+      run: sudo apt update && sudo apt install -y unzip
+
+    # ============================
+    # DESCOMPRIMIR BIN Y CORE
+    # ============================
+    - name: Extract bin2.zip
+      run: unzip -o bin2.zip
+
+    - name: Extract core.zip
+      run: unzip -o core.zip
+
+    # ============================
+    # FIX PERMISOS (CLAVE)
+    # ============================
+    - name: Fix permissions
+      run: |
+        chmod +x start.sh
+        chmod +x bin/php7/bin/php
+        find bin -type f -name "*.so*" -exec chmod 755 {} \;
+
+    # ============================
+    # VERIFICAR PHP
+    # ============================
+    - name: Test PHP binary
+      run: ./bin/php7/bin/php -v
+
+    # ============================
+    # INICIAR SERVER (40s)
+    # ============================
+    - name: Run PocketMine server (test)
+      run: |
+        timeout 40s ./start.sh || true
+
+    # ============================
+    # COMPRIMIR BACKUP COMPLETO
+    # ============================
+    - name: Create server backup
+      run: |
+        tar -czf pocketmine-backup.tar.gz \
+          start.sh \
+          bin \
+          hpcore.phar \
+          server.properties \
+          worlds \
+          players \
+          plugins \
+          crashdumps \
+          *.yml || true
+
+    # ============================
+    # SUBIR ARTEFACTO
+    # ============================
+    - name: Upload backup artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pocketmine-server-backup
+        path: pocketmine-backup.tar.gz
