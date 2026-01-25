@@ -56,24 +56,21 @@ jobs:
         cd bin/php7/lib
         ln -sf libyaml-0.so.2 libyaml.so.2
 
-    # 🔧 FIX libleveldb (CORRECTO PARA UBUNTU 22.04)
+    # 🔧 FIX libleveldb (SONAME CORRECTO)
     - name: Fix libleveldb broken binary
       run: |
         set -e
         cd php-build-scripts
 
-        echo "🔍 Resolving real libleveldb file"
         REAL_LEVELDB=$(readlink -f /usr/lib/x86_64-linux-gnu/libleveldb.so)
-
-        file "$REAL_LEVELDB"
+        BASENAME=$(basename "$REAL_LEVELDB")
 
         rm -f bin/php7/lib/libleveldb*
         cp "$REAL_LEVELDB" bin/php7/lib/
 
         cd bin/php7/lib
-        ln -sf "$(basename "$REAL_LEVELDB")" libleveldb.so
-
-        file libleveldb.so
+        ln -sf "$BASENAME" libleveldb.so
+        ln -sf "$BASENAME" libleveldb.so.1
 
     # 🔐 FIX PERMISOS
     - name: Ensure PHP binary is executable
