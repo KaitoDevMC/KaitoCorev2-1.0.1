@@ -60,21 +60,28 @@ jobs:
         ln -sf libyaml-0.so.2 libyaml.so.2
         file libyaml-0.so.2
 
-    # 🔧 FIX libleveldb (archivo truncado)
+    # 🔧 FIX libleveldb (ARREGLADO PARA UBUNTU 22.04)
     - name: Fix libleveldb broken binary
       run: |
         set -e
         cd php-build-scripts
 
-        echo "🔍 System libleveldb"
-        file /usr/lib/x86_64-linux-gnu/libleveldb.so.1
+        echo "🔍 Searching system libleveldb"
+        LEVELDB_LIB=$(ls /usr/lib/x86_64-linux-gnu/libleveldb.so* | head -n 1)
+
+        if [ -z "$LEVELDB_LIB" ]; then
+          echo "❌ libleveldb not found"
+          exit 1
+        fi
+
+        file "$LEVELDB_LIB"
 
         rm -f bin/php7/lib/libleveldb*
-        cp /usr/lib/x86_64-linux-gnu/libleveldb.so.1 bin/php7/lib/
+        cp "$LEVELDB_LIB" bin/php7/lib/
 
         cd bin/php7/lib
-        ln -sf libleveldb.so.1 libleveldb.so
-        file libleveldb.so.1
+        ln -sf "$(basename "$LEVELDB_LIB")" libleveldb.so
+        file "$(basename "$LEVELDB_LIB")"
 
     # 🔐 FIX PERMISOS (NO se rompen)
     - name: Ensure PHP binary is executable
@@ -95,7 +102,6 @@ jobs:
         cd php-build-scripts
         tar -czf php-8.2-pocketmine-linux-x86_64.tar.gz bin/
 
-    # 📦 SUBIR A ARTEFACTOS
     - name: Upload PHP binary artifact
       uses: actions/upload-artifact@v4
       with:
