@@ -44,46 +44,38 @@ jobs:
         chmod +x compile.sh
         ./compile.sh -P5 -j$(nproc)
 
-    # 🔧 FIX libyaml (archivo truncado)
+    # 🔧 FIX libyaml
     - name: Fix libyaml broken binary
       run: |
         set -e
         cd php-build-scripts
-
-        echo "🔍 System libyaml"
-        file /usr/lib/x86_64-linux-gnu/libyaml-0.so.2
 
         rm -f bin/php7/lib/libyaml*
         cp /usr/lib/x86_64-linux-gnu/libyaml-0.so.2 bin/php7/lib/
 
         cd bin/php7/lib
         ln -sf libyaml-0.so.2 libyaml.so.2
-        file libyaml-0.so.2
 
-    # 🔧 FIX libleveldb (ARREGLADO PARA UBUNTU 22.04)
+    # 🔧 FIX libleveldb (CORRECTO PARA UBUNTU 22.04)
     - name: Fix libleveldb broken binary
       run: |
         set -e
         cd php-build-scripts
 
-        echo "🔍 Searching system libleveldb"
-        LEVELDB_LIB=$(ls /usr/lib/x86_64-linux-gnu/libleveldb.so* | head -n 1)
+        echo "🔍 Resolving real libleveldb file"
+        REAL_LEVELDB=$(readlink -f /usr/lib/x86_64-linux-gnu/libleveldb.so)
 
-        if [ -z "$LEVELDB_LIB" ]; then
-          echo "❌ libleveldb not found"
-          exit 1
-        fi
-
-        file "$LEVELDB_LIB"
+        file "$REAL_LEVELDB"
 
         rm -f bin/php7/lib/libleveldb*
-        cp "$LEVELDB_LIB" bin/php7/lib/
+        cp "$REAL_LEVELDB" bin/php7/lib/
 
         cd bin/php7/lib
-        ln -sf "$(basename "$LEVELDB_LIB")" libleveldb.so
-        file "$(basename "$LEVELDB_LIB")"
+        ln -sf "$(basename "$REAL_LEVELDB")" libleveldb.so
 
-    # 🔐 FIX PERMISOS (NO se rompen)
+        file libleveldb.so
+
+    # 🔐 FIX PERMISOS
     - name: Ensure PHP binary is executable
       run: |
         cd php-build-scripts
@@ -97,7 +89,7 @@ jobs:
         bin/php7/bin/php -v
         bin/php7/bin/php -m | grep -E "yaml|leveldb"
 
-    - name: Package PHP binary only (preserve permissions)
+    - name: Package PHP binary only
       run: |
         cd php-build-scripts
         tar -czf php-8.2-pocketmine-linux-x86_64.tar.gz bin/
@@ -115,7 +107,7 @@ jobs:
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
         git add builds/php-8.2-pocketmine-linux-x86_64.tar.gz
-        git commit -m "Add compiled PHP 8.2 PocketMine binary" || echo "No changes to commit"
+        git commit -m "Add compiled PHP 8.2 PocketMine binary" || echo "No changes"
 
     - name: Push to repository
       uses: ad-m/github-push-action@v0.8.0
