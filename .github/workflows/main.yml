@@ -1,105 +1,60 @@
-name: Build PHP 8.2 Binary for PocketMine
+name: PocketMine Test Server Backup
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-
-permissions:
-  contents: write
 
 jobs:
-  build-php:
-    runs-on: ubuntu-22.04
+  test-server:
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install build dependencies
+    - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y \
-          git cmake make autoconf automake \
-          libtool libtool-bin pkg-config \
-          build-essential bison re2c \
-          libssl-dev libcurl4-openssl-dev \
-          libyaml-dev libzip-dev zlib1g-dev \
-          libgmp-dev libsqlite3-dev \
-          libleveldb-dev \
-          libpcre3-dev libonig-dev \
-          libedit-dev libreadline-dev \
-          libffi-dev
+        sudo apt install -y unzip tar libyaml-0-2
 
-    - name: Clone PMMP php-build-scripts
+    - name: Prepare server directory
       run: |
-        git clone https://github.com/pmmp/php-build-scripts
-        cd php-build-scripts
-        git submodule update --init --recursive
+        mkdir server
 
-    - name: Compile PHP 8.2 (PocketMine compatible)
+    - name: Extract PHP binary (bin2.zip)
       run: |
-        cd php-build-scripts
-        export PMMP_PHP_VERSION=8.2
-        chmod +x compile.sh
-        ./compile.sh -P5 -j$(nproc)
+        unzip bin2.zip -d server
+        chmod +x server/bin/php7/bin/php
 
-    # 🔧 FIX REAL DEL ERROR libyaml-0.so.2 (archivo truncado)
-    - name: Fix libyaml broken binary
+    - name: Extract PocketMine core (core.zip)
       run: |
-        set -e
-        cd php-build-scripts
+        unzip core.zip -d server
+        # Renombrar hpcore.phar a PocketMine-MP.phar
+        if [ -f server/hpcore.phar ]; then
+          mv server/hpcore.phar server/PocketMine-MP.phar
+        fi
 
-        echo "🔍 Checking system libyaml"
-        file /usr/lib/x86_64-linux-gnu/libyaml-0.so.2
-
-        echo "📦 Replacing broken libyaml"
-        rm -f bin/php7/lib/libyaml*
-        cp /usr/lib/x86_64-linux-gnu/libyaml-0.so.2 bin/php7/lib/
-
-        echo "🔗 Creating symlink"
-        cd bin/php7/lib
-        ln -sf libyaml-0.so.2 libyaml.so.2
-
-        echo "✅ libyaml fixed"
-        file libyaml-0.so.2
-
-    # 🔐 FIX PERMISSION DENIED (clave)
-    - name: Ensure PHP binary is executable
+    - name: Copy start.sh
       run: |
-        cd php-build-scripts
-        chmod 755 bin/php7/bin/php
-        chmod 755 bin/php7/bin/*
-        ls -l bin/php7/bin/php
+        cp start.sh server/start.sh
+        chmod +x server/start.sh
 
-    - name: Verify PHP binary
+    - name: Fix permissions (Permission denied FIX)
       run: |
-        cd php-build-scripts
-        bin/php7/bin/php -m | grep yaml
+        chmod -R u+rwX server
+        ls -l server/bin/php7/bin/php
+        ls -l server/start.sh
 
-    - name: Package PHP binary only (preserve permissions)
+    - name: Run PocketMine test server
       run: |
-        cd php-build-scripts
-        tar -czf php-8.2-pocketmine-linux-x86_64.tar.gz bin/
+        cd server
+        timeout 40s ./start.sh || true
 
-    # 📦 SUBIR A ARTEFACTOS
-    - name: Upload PHP binary artifact
+    - name: Create full server backup
+      run: |
+        tar -czvf pocketmine-server-backup.tar.gz server/
+
+    - name: Upload backup artifact
       uses: actions/upload-artifact@v4
       with:
-        name: php-8.2-pocketmine-linux-x86_64
-        path: php-build-scripts/php-8.2-pocketmine-linux-x86_64.tar.gz
-
-    - name: Commit compiled PHP to repository
-      run: |
-        mkdir -p builds
-        mv php-build-scripts/php-8.2-pocketmine-linux-x86_64.tar.gz builds/
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git add builds/php-8.2-pocketmine-linux-x86_64.tar.gz
-        git commit -m "Add compiled PHP 8.2 PocketMine binary" || echo "No changes to commit"
-
-    - name: Push to repository
-      uses: ad-m/github-push-action@v0.8.0
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: main
+        name: pocketmine-server-backup
+        path: pocketmine-server-backup.tar.gz
