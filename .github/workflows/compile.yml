@@ -1,0 +1,118 @@
+name: Build PHP 8.2 Binary for PocketMine
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-php:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          git cmake make autoconf automake \
+          libtool libtool-bin pkg-config \
+          build-essential bison re2c \
+          libssl-dev libcurl4-openssl-dev \
+          libyaml-dev libzip-dev zlib1g-dev \
+          libgmp-dev libsqlite3-dev \
+          libleveldb-dev \
+          libpcre3-dev libonig-dev \
+          libedit-dev libreadline-dev \
+          libffi-dev
+
+    - name: Clone PMMP php-build-scripts
+      run: |
+        git clone https://github.com/pmmp/php-build-scripts
+        cd php-build-scripts
+        git submodule update --init --recursive
+
+    - name: Compile PHP 8.2 (PocketMine compatible)
+      run: |
+        cd php-build-scripts
+        export PMMP_PHP_VERSION=8.2
+        chmod +x compile.sh
+        ./compile.sh -P5 -j$(nproc)
+
+    # 🔧 FIX libyaml (archivo truncado)
+    - name: Fix libyaml broken binary
+      run: |
+        set -e
+        cd php-build-scripts
+
+        echo "🔍 System libyaml"
+        file /usr/lib/x86_64-linux-gnu/libyaml-0.so.2
+
+        rm -f bin/php7/lib/libyaml*
+        cp /usr/lib/x86_64-linux-gnu/libyaml-0.so.2 bin/php7/lib/
+
+        cd bin/php7/lib
+        ln -sf libyaml-0.so.2 libyaml.so.2
+        file libyaml-0.so.2
+
+    # 🔧 FIX libleveldb (archivo truncado)
+    - name: Fix libleveldb broken binary
+      run: |
+        set -e
+        cd php-build-scripts
+
+        echo "🔍 System libleveldb"
+        file /usr/lib/x86_64-linux-gnu/libleveldb.so.1
+
+        rm -f bin/php7/lib/libleveldb*
+        cp /usr/lib/x86_64-linux-gnu/libleveldb.so.1 bin/php7/lib/
+
+        cd bin/php7/lib
+        ln -sf libleveldb.so.1 libleveldb.so
+        file libleveldb.so.1
+
+    # 🔐 FIX PERMISOS (NO se rompen)
+    - name: Ensure PHP binary is executable
+      run: |
+        cd php-build-scripts
+        chmod 755 bin/php7/bin/php
+        chmod 755 bin/php7/bin/*
+        find bin/php7/lib -name "*.so*" -exec chmod 755 {} \;
+
+    - name: Verify PHP binary
+      run: |
+        cd php-build-scripts
+        bin/php7/bin/php -v
+        bin/php7/bin/php -m | grep -E "yaml|leveldb"
+
+    - name: Package PHP binary only (preserve permissions)
+      run: |
+        cd php-build-scripts
+        tar -czf php-8.2-pocketmine-linux-x86_64.tar.gz bin/
+
+    # 📦 SUBIR A ARTEFACTOS
+    - name: Upload PHP binary artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: php-8.2-pocketmine-linux-x86_64
+        path: php-build-scripts/php-8.2-pocketmine-linux-x86_64.tar.gz
+
+    - name: Commit compiled PHP to repository
+      run: |
+        mkdir -p builds
+        mv php-build-scripts/php-8.2-pocketmine-linux-x86_64.tar.gz builds/
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add builds/php-8.2-pocketmine-linux-x86_64.tar.gz
+        git commit -m "Add compiled PHP 8.2 PocketMine binary" || echo "No changes to commit"
+
+    - name: Push to repository
+      uses: ad-m/github-push-action@v0.8.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: main
