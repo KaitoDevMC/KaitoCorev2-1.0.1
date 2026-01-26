@@ -1,0 +1,53 @@
+name: Decompile MCPE APK from ZIP (JADX)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  decompile:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y openjdk-17-jre unzip zip wget
+
+    - name: Extract app.zip
+      run: |
+        unzip app.zip -d extracted
+        ls extracted
+
+    - name: Verify mcpe.apk exists
+      run: |
+        if [ ! -f extracted/mcpe.apk ]; then
+          echo "❌ mcpe.apk no encontrado"
+          exit 1
+        fi
+
+    - name: Download JADX
+      run: |
+        wget https://github.com/skylot/jadx/releases/download/v1.4.7/jadx-1.4.7.zip
+        unzip jadx-1.4.7.zip -d jadx
+        chmod +x jadx/bin/jadx
+
+    - name: Decompile mcpe.apk to Java
+      run: |
+        mkdir decompiled
+        jadx/bin/jadx \
+          --show-bad-code \
+          --no-debug-info \
+          -d decompiled \
+          extracted/mcpe.apk
+
+    - name: Compress decompiled output
+      run: zip -r mcpe-java-decompiled.zip decompiled
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mcpe-java-decompiled
+        path: mcpe-java-decompiled.zip
