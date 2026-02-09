@@ -41,8 +41,8 @@ fi
 # POCKETMINE CORE (RENOMBRADOS)
 # ===============================
 if [ "$POCKETMINE_FILE" == "" ]; then
-	if [ -f ./hpcore.phar ]; then
-		POCKETMINE_FILE="./hpcore.phar"
+	if [ -f ./PocketMine-MP.phar ]; then
+		POCKETMINE_FILE="./PocketMine-MP.phar"
 	elif [ -f ./PocketMine-MP.phar ]; then
 		POCKETMINE_FILE="./PocketMine-MP.phar"
 	elif [ -f ./src/pocketmine/PocketMine.php ]; then
