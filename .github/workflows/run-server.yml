@@ -53,7 +53,7 @@ jobs:
         tar -czf pocketmine-backup.tar.gz \
           start.sh \
           bin \
-          hpcore.phar \
+          PocketMine-MP.phar \
           server.properties \
           worlds \
           players \
