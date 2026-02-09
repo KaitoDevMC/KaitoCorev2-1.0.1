@@ -40,10 +40,11 @@ jobs:
 
     # ============================
     # INICIAR SERVER (40s)
+    # ACEPTA IDIOMA + LICENCIA AUTOMÁTICAMENTE
     # ============================
     - name: Run PocketMine server (test)
       run: |
-        timeout 40s ./start.sh || true
+        timeout 40s bash -c 'printf "eng\ny\n" | ./start.sh' || true
 
     # ============================
     # COMPRIMIR BACKUP COMPLETO
